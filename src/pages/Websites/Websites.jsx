@@ -3,6 +3,7 @@ import axios from "axios";
 import {
   Search,
   ChevronDown,
+  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Lock,
@@ -49,6 +50,21 @@ const NICHES = ["News","Entertainment","Blog","Business","General","Technology",
 
 const LANGUAGES = ["English", "Spanish", "Italian", "Ukrainian"];
 const LINK_VALIDITY = ["Instant", "1 Year", "Permanent"];
+
+const RULE_POOL = [
+  "No gambling or casino content",
+  "No CBD or pharmacy content",
+  "No adult or dating content",
+  "Author bio allowed (1 link)",
+  "Do-follow link on first mention only",
+  "Minimum 600 words per article",
+  "No cryptocurrency content",
+  "Content must be 100% unique",
+  "Anchor text must be natural",
+  "Max 2 outbound links per post",
+  "Sponsored tag required",
+  "No political or religious content",
+];
 
 const FILTER_DEFS = [
   { key: "as", label: "AS", type: "bucket", options: SCORE_BUCKETS },
@@ -135,6 +151,9 @@ function generateFakeDb(count) {
       semrushKeywords: rand(10, 40000),
       ahrefsTrend: trendSeries(bias),
       semrushTrend: trendSeries(-bias),
+      trafficCountry: pick(COUNTRIES).code, // top country the Ahrefs traffic comes from
+      trendPercent: rand(-90, 90), // Semrush traffic change over the last 3 months
+      rules: pickMany(RULE_POOL, rand(3, 5)),
       countries,
       backlinksCount: pick([1, 1, 2, 2, 2, 3]),
       dofollow: Math.random() > 0.15,
@@ -389,6 +408,34 @@ function FilterSelect({ def, value, onChange }) {
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+    </div>
+  );
+}
+
+function RulesDropdown({ rules }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-orange-400"
+      >
+        View Rules
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-10 mt-1.5 w-56 rounded-md border border-white/10 bg-[#0F1729] p-3 shadow-lg">
+          <ul className="space-y-1.5">
+            {rules.map((rule) => (
+              <li key={rule} className="flex gap-1.5 text-[11px] leading-snug text-slate-300">
+                <span className="text-orange-400">•</span>
+                {rule}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -660,32 +707,47 @@ export default function GuestPostingMarketplace() {
                 rows.map((r) => (
                   <tr key={r.id} className="border-b border-white/5 align-top hover:bg-white/[0.03]">
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-white">{r.domain}</span>
-                        {r.isNew && (
-                          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">NEW</span>
-                        )}
+                      <div className="flex items-start gap-2">
+                        <Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-white">{r.domain}</span>
+                            {r.isNew && (
+                              <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">NEW</span>
+                            )}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {r.niches.map((n) => (
+                              <span key={n} className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-300">
+                                {n}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-3">
+                            <RulesDropdown rules={r.rules} />
+                            <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                              <Globe2 className="h-3 w-3" /> {r.language}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {r.niches.map((n) => (
-                          <span key={n} className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-300">
-                            {n}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="mt-1 text-[11px] text-slate-500">{r.language}</div>
                     </td>
                     <td className="px-3 py-4"><RingMetric value={r.as} /></td>
                     <td className="px-3 py-4"><RingMetric value={r.da} /></td>
                     <td className="px-3 py-4"><RingMetric value={r.dr} /></td>
                     <td className="px-3 py-4">
-                      <div className="text-sm font-semibold text-white">{formatCompact(r.ahrefsTraffic)}</div>
                       <Sparkline data={r.ahrefsTrend} color="#fb923c" />
+                      <div className="text-sm font-semibold text-white">
+                        {r.trafficCountry} {formatCompact(r.ahrefsTraffic)}+
+                      </div>
                       <div className="text-[10px] text-slate-500">{formatCompact(r.ahrefsKeywords)} keywords</div>
                     </td>
                     <td className="px-3 py-4">
-                      <div className="text-sm font-semibold text-white">{formatCompact(r.semrushTraffic)}</div>
                       <Sparkline data={r.semrushTrend} color="#34d399" />
+                      <div className="text-sm font-semibold text-white">{formatCompact(r.semrushTraffic)}</div>
+                      <div className={`text-[10px] font-medium ${r.trendPercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {r.trendPercent >= 0 ? "▲" : "▼"} {Math.abs(r.trendPercent)}% / 3 mo
+                      </div>
                       <div className="text-[10px] text-slate-500">{formatCompact(r.semrushKeywords)} keywords</div>
                     </td>
                     <td className="px-3 py-4">
