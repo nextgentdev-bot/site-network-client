@@ -422,7 +422,10 @@ function RulesDropdown({ rules }) {
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
         className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-orange-400"
       >
         View Rules
@@ -441,6 +444,196 @@ function RulesDropdown({ rules }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function WebsiteDetailModal({ website, onClose, onMemberPriceClick }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  if (!website) return null;
+  const r = website;
+
+  const linkFacts = [
+    ["Backlinks", r.backlinksCount],
+    ["Link Type", r.dofollow ? "DoFollow" : "NoFollow"],
+    ["Validity", r.linkValidity],
+    ["Delivery", r.deliveryDays === 0 ? "Instant" : `${r.deliveryDays} days`],
+  ];
+
+  const policyFlags = [
+    ["Sports/Gaming", r.sportsGaming],
+    ["Pharmacy", r.pharmacy],
+    ["Google News", r.googleNews],
+    ["Foreign language", r.foreignLang],
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1220] shadow-2xl sm:max-w-3xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/10 bg-[#0B1220]/95 px-5 py-4 backdrop-blur sm:px-7 sm:py-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Globe2 className="h-5 w-5 shrink-0 text-orange-400" />
+              <h2 className="truncate text-lg font-bold text-white sm:text-xl">{r.domain}</h2>
+              {r.isNew && (
+                <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  NEW
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {r.niches.map((n) => (
+                <span key={n} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300">
+                  {n}
+                </span>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-full border border-white/10 p-1.5 text-slate-400 hover:border-white/20 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-5 py-5 sm:px-7 sm:py-6">
+          {/* Authority scores */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Authority Scores</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "AS", value: r.as },
+                { label: "Moz DA", value: r.da },
+                { label: "Ahrefs DR", value: r.dr },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-[#0F1729] py-4">
+                  <RingMetric value={value} />
+                  <span className="text-[11px] text-slate-400">{label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Traffic */}
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/10 bg-[#0F1729] p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ahrefs Traffic</h3>
+                <Sparkline data={r.ahrefsTrend} color="#fb923c" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-white">{formatCompact(r.ahrefsTraffic)}+</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {formatCompact(r.ahrefsKeywords)} keywords · top source {r.trafficCountry}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-[#0F1729] p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Semrush Traffic</h3>
+                <Sparkline data={r.semrushTrend} color="#34d399" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-white">{formatCompact(r.semrushTraffic)}</div>
+              <div className={`mt-1 text-xs font-medium ${r.trendPercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {r.trendPercent >= 0 ? "▲" : "▼"} {Math.abs(r.trendPercent)}% over 3 months
+              </div>
+              <div className="text-xs text-slate-500">{formatCompact(r.semrushKeywords)} keywords</div>
+            </div>
+          </section>
+
+          {/* Countries */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Audience by Country</h3>
+            <div className="space-y-2 rounded-lg border border-white/10 bg-[#0F1729] p-4">
+              {r.countries.map((c) => (
+                <div key={c.code} className="flex items-center gap-3">
+                  <span className="w-6 shrink-0 text-base">{c.flag}</span>
+                  <span className="w-10 shrink-0 text-xs text-slate-300">{c.code}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-full rounded-full bg-orange-500" style={{ width: `${c.pct}%` }} />
+                  </div>
+                  <span className="w-10 shrink-0 text-right text-xs font-medium text-slate-300">{c.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Link & delivery */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Link &amp; Delivery</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {linkFacts.map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-white/10 bg-[#0F1729] p-3 text-center">
+                  <div className="text-sm font-semibold text-white">{value}</div>
+                  <div className="mt-0.5 text-[11px] text-slate-500">{label}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Content policy */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Content Policy</h3>
+            <div className="flex flex-wrap gap-2">
+              {policyFlags.map(([label, allowed]) => (
+                <span
+                  key={label}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                    allowed
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                      : "border-white/10 bg-white/5 text-slate-500"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${allowed ? "bg-emerald-400" : "bg-slate-600"}`} />
+                  {label}: {allowed ? "Yes" : "No"}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* Rules */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Publishing Rules</h3>
+            <ul className="space-y-1.5 rounded-lg border border-white/10 bg-[#0F1729] p-4">
+              {r.rules.map((rule) => (
+                <li key={rule} className="flex gap-2 text-sm text-slate-300">
+                  <span className="text-orange-400">•</span>
+                  {rule}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        {/* Footer CTA */}
+        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-white/10 bg-[#0B1220]/95 px-5 py-4 backdrop-blur sm:px-7">
+          <div className="flex items-center gap-1.5 text-sm text-slate-400">
+            <Globe2 className="h-3.5 w-3.5" /> {r.language}
+          </div>
+          <button
+            onClick={onMemberPriceClick}
+            className="flex items-center gap-1.5 rounded-md border border-orange-500/60 px-4 py-2 text-sm font-semibold text-orange-400 hover:bg-orange-500/10"
+          >
+            <Lock className="h-3.5 w-3.5" /> View Member Price
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -490,6 +683,7 @@ export default function GuestPostingMarketplace() {
   const [filters, setFilters] = useState(emptyFilters);
   const [gateOpen, setGateOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [selectedSite, setSelectedSite] = useState(null);
 
   useEffect(() => {
     const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
@@ -557,6 +751,16 @@ export default function GuestPostingMarketplace() {
   return (
     <div className="min-h-screen bg-[#0B1220] px-4 py-10 font-sans sm:px-8">
       {gateOpen && <LoginGateModal onClose={() => setGateOpen(false)} />}
+      {selectedSite && (
+        <WebsiteDetailModal
+          website={selectedSite}
+          onClose={() => setSelectedSite(null)}
+          onMemberPriceClick={() => {
+            setSelectedSite(null);
+            setGateOpen(true);
+          }}
+        />
+      )}
 
       <div className="mx-auto max-w-7xl">
         {/* Hero */}
@@ -713,7 +917,11 @@ export default function GuestPostingMarketplace() {
 
               {!loading &&
                 rows.map((r) => (
-                  <tr key={r.id} className="border-b border-white/5 align-top hover:bg-white/[0.03]">
+                  <tr
+                    key={r.id}
+                    onClick={() => setSelectedSite(r)}
+                    className="cursor-pointer border-b border-white/5 align-top hover:bg-white/[0.03]"
+                  >
                     <td className="px-4 py-4">
                       <div className="flex items-start gap-2">
                         <Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
@@ -781,7 +989,10 @@ export default function GuestPostingMarketplace() {
                     </td>
                     <td className="px-3 py-4">
                       <button
-                        onClick={() => setGateOpen(true)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGateOpen(true);
+                        }}
                         className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-orange-500/60 px-3 py-1.5 text-xs font-semibold text-orange-400 hover:bg-orange-500/10"
                       >
                         <Lock className="h-3 w-3" /> Member Price
