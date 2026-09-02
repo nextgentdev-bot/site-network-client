@@ -4,6 +4,7 @@ import Home from "../../pages/Home/Home";
 import Login from "../../pages/Login/Login"
 import Register from "../../pages/Register/Register"
 import Websites from "../../pages/Websites/Websites";
+import AddWebsiteDashboard from "../../pages/Dashboard/AddWebsiteDashboard/AddWebsiteDashboard";
 
 
 
@@ -27,6 +28,12 @@ export const router = createBrowserRouter([
             {
                 path: 'register',
                 element: <Register></Register>
+            },
+            {
+                // TODO: wrap with <PrivateRoutes> once that component exists,
+                // so only logged-in users can reach the add-website form.
+                path: 'add-website',
+                element: <AddWebsiteDashboard></AddWebsiteDashboard>
             }
         ]
     },
