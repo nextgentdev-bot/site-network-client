@@ -2,9 +2,8 @@ import axios from "axios";
 import useAuth from "./useAuth";
 import { useNavigate } from "react-router-dom";
 
-
 const axiosSecure = axios.create({
-    baseURL: 'http://localhost:9000'
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:9000'
 })
 
 const useAxiosSecure = () => {
