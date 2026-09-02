@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
 import {
   Search,
   ChevronDown,
@@ -21,6 +20,7 @@ import {
   HeartPulse,
   X,
 } from "lucide-react";
+import useAxiosPublic from "../../hooks/useAxiosPublic";
 
 /* ============================================================================
    CONSTANTS — mirrors the real site's filter option buckets so the clone's
@@ -88,7 +88,9 @@ const FILTER_DEFS = [
 ];
 
 /* ============================================================================
-   FAKE DATA — replace with real API data once your MERN backend is ready.
+   FAKE DATA — kept ONLY as an offline fallback if the API request fails
+   (e.g. backend down, no network). Once your API is solid you can delete
+   this whole block plus mockFetch/generateFakeDb below.
 ============================================================================ */
 
 const NAME_A = ["digi","prime","urban","byte","north","grand","swift","nova","core","vivid","peak","zen","true","meta","pulse","spark","trend","orbit","wise","fresh"];
@@ -151,8 +153,8 @@ function generateFakeDb(count) {
       semrushKeywords: rand(10, 40000),
       ahrefsTrend: trendSeries(bias),
       semrushTrend: trendSeries(-bias),
-      trafficCountry: pick(COUNTRIES).code, // top country the Ahrefs traffic comes from
-      trendPercent: rand(-90, 90), // Semrush traffic change over the last 3 months
+      trafficCountry: pick(COUNTRIES).code,
+      trendPercent: rand(-90, 90),
       rules: pickMany(RULE_POOL, rand(3, 5)),
       countries,
       backlinksCount: pick([1, 1, 2, 2, 2, 3]),
@@ -172,11 +174,6 @@ function generateFakeDb(count) {
 
 const FAKE_DB = generateFakeDb(520);
 
-/* ============================================================================
-   FILTER PARSING — turns a bucket string like "10k to 20k" or "31 to 40"
-   into a numeric [min, max] range for filtering.
-============================================================================ */
-
 function bucketToRange(bucket) {
   if (!bucket) return null;
   if (bucket.endsWith("+")) {
@@ -192,10 +189,6 @@ function parseUnit(str) {
   if (str.endsWith("K") || str.endsWith("k")) return parseFloat(str) * 1000;
   return parseFloat(str);
 }
-
-/* ============================================================================
-   MOCK API — same query params a real Express endpoint would receive.
-============================================================================ */
 
 function mockFetch(params) {
   const { page = 1, perPage = 150, sortBy = "default", search = "", filters = {} } = params;
@@ -266,13 +259,17 @@ function mockFetch(params) {
 }
 
 /* ============================================================================
-   DATA HOOK — axios first, falls back to local fake data if there's no
-   backend yet or the response doesn't look like real API data.
+   DATA HOOK — talks to the real Express API. `filters` is JSON-stringified
+   before being sent, because axios's default query serializer does NOT
+   handle nested objects the way the backend (JSON.parse(req.query.filters))
+   expects. On any request failure it falls back to the local fake data so
+   the UI keeps working while you're setting up / debugging the backend.
 ============================================================================ */
 
-const API_BASE = "/api/websites"; // TODO: point this at your Express route
+const API_PATH = "/api/websites"; // relative — the base URL now comes from useAxiosPublic's baseURL
 
 function useWebsites({ page, perPage, sortBy, search, filters }) {
+  const axiosPublic = useAxiosPublic();
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -283,10 +280,17 @@ function useWebsites({ page, perPage, sortBy, search, filters }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const params = { page, perPage, sortBy, search, filters };
 
-    axios
-      .get(API_BASE, { params })
+    const requestParams = {
+      page,
+      perPage,
+      sortBy,
+      search,
+      filters: filtersKey, // send as a JSON string, matched by JSON.parse on the server
+    };
+
+    axiosPublic
+      .get(API_PATH, { params: requestParams })
       .then((res) => {
         const data = res.data;
         const looksValid = data && Array.isArray(data.rows) && typeof data.total === "number";
@@ -297,8 +301,9 @@ function useWebsites({ page, perPage, sortBy, search, filters }) {
         setUsingFallback(false);
         setLoading(false);
       })
-      .catch(() => {
-        mockFetch(params).then((res) => {
+      .catch((err) => {
+        console.warn("Falling back to local demo data — /api/websites request failed:", err.message);
+        mockFetch({ page, perPage, sortBy, search, filters }).then((res) => {
           if (cancelled) return;
           setRows(res.rows);
           setTotal(res.total);
@@ -319,9 +324,9 @@ function useWebsites({ page, perPage, sortBy, search, filters }) {
 ============================================================================ */
 
 function ringColor(value) {
-  if (value >= 60) return "#34d399"; // emerald
-  if (value >= 30) return "#fb923c"; // orange
-  return "#f87171"; // red
+  if (value >= 60) return "#34d399";
+  if (value >= 30) return "#fb923c";
+  return "#f87171";
 }
 
 function RingMetric({ value }) {
@@ -506,7 +511,10 @@ export default function GuestPostingMarketplace() {
     page, perPage, sortBy, search, filters: cleanFilters,
   });
 
-  // Category card counts, computed from the same source the table reads from.
+  // Category card counts. NOTE: these still read from the local FAKE_DB, so
+  // they'll be static/demo numbers until you replace them with a real
+  // aggregate endpoint (e.g. GET /api/websites/stats) — otherwise they won't
+  // match what's actually in Mongo.
   const categoryCounts = useMemo(() => {
     const c = {
       total: FAKE_DB.length,
